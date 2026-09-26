@@ -1,0 +1,11 @@
+# Environment and caches
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Regenerable with `python -m experiments.generate_device_data`
+data/devices/
+
+# Copyrighted base paper (IEEE); keep local, never push
+*.pdf

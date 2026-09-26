@@ -1,0 +1,13 @@
+baseline,density,baseline_delay,qits_delay,improvement_%,t,p
+fixed_time,low,26.17,24.05,8.1,28.4,1.0e-22
+fixed_time,medium,27.87,24.95,10.5,55.3,6.1e-31
+fixed_time,high,30.98,26.97,12.9,50.0,1.1e-29
+rule_based,low,25.74,24.05,6.6,21.2,3.3e-19
+rule_based,medium,27.43,24.95,9.0,34.8,3.3e-25
+rule_based,high,31.09,26.97,13.2,42.8,9.3e-28
+dqn_split,low,26.18,24.05,8.1,21.7,1.8e-19
+dqn_split,medium,28.81,24.95,13.4,54.7,8.3e-31
+dqn_split,high,32.47,26.97,16.9,55.4,5.5e-31
+dqn,low,12.89,24.05,-86.5,-134.3,4.5e-42
+dqn,medium,15.22,24.95,-63.9,-162.7,1.7e-44
+dqn,high,19.59,26.97,-37.7,-84.9,2.5e-36

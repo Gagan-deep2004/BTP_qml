@@ -1,0 +1,26 @@
+﻿[qits_noqopt] pretrain episode 1/2: delay=45.66s final dθ=0.094
+[qits_noqopt] pretrain episode 2/2: delay=28.71s final dθ=0.066
+[qits_noqkd] pretrain episode 1/2: delay=25.33s final dθ=0.141
+[qits_noqkd] pretrain episode 2/2: delay=25.41s final dθ=0.149
+[qits_nocons] pretrain episode 1/2: delay=25.52s final dθ=0.143
+[qits_nocons] pretrain episode 2/2: delay=24.98s final dθ=0.161
+                           avg_delay_s  congestion_index  decision_latency_s  consensus_entropy     pdr  mean_fidelity
+variant           density                                                                                             
+qits              low          24.0514            0.0496              0.0998             0.9656  0.9897         0.9183
+                  medium       24.9478            0.1010              0.0998             0.9560  0.9897         0.9183
+                  high         26.9679            0.1568              0.0998             0.9480  0.9897         0.9183
+qits_nocons       low          23.8730            0.0494              0.0988             0.9604  1.0000         0.9183
+                  medium       25.0503            0.1012              0.0988             0.9490  1.0000         0.9183
+                  high         26.9984            0.1569              0.0988             0.9386  1.0000         0.9183
+qits_noqkd        low          24.0623            0.0496              0.0998             0.9642  0.9900            NaN
+                  medium       24.9235            0.1009              0.0998             0.9545  0.9900            NaN
+                  high         26.9126            0.1566              0.0998             0.9483  0.9900            NaN
+qits_noqopt       low          25.0246            0.0505              0.0015             0.3577  0.9897         0.9183
+                  medium       28.3354            0.1072              0.0015             0.3453  0.9897         0.9183
+                  high         38.2198            0.3144              0.0015             0.3689  0.9897         0.9183
+qits_routing_only low          24.9060            0.0501              0.0998             0.9566  0.9898         0.9183
+                  medium       25.9165            0.1020              0.0998             0.9399  0.9898         0.9183
+                  high         28.2361            0.1593              0.0998             0.9146  0.9898         0.9183
+qits_signals_only low          26.1752            0.0513              0.0998             0.9421  0.9898         0.9183
+                  medium       27.6586            0.1053              0.0998             0.9216  0.9898         0.9183
+                  high         31.2988            0.1677              0.0998             0.9068  0.9898         0.9183

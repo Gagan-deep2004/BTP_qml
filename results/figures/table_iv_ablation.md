@@ -1,0 +1,6 @@
+| Variant | Delay reduction vs rule-based (%) | Decision latency reduction vs DQN (%) | delay low (s) | delay medium (s) | delay high (s) | latency (ms) | runs |
+|---|---|---|---|---|---|---|---|
+| Q-ITS (Full) | 9.6 ± 0.9 | -186.1 ± 0.2 | 24.05 | 24.95 | 26.97 | 99.8 | 90 |
+| Q-ITS -NoQOpt | 22.5 ± 0.8 | 95.8 ± 0.0 | 20.21 | 21.53 | 23.46 | 1.5 | 90 |
+| Q-ITS -NoQKD | 9.7 ± 0.9 | -186.2 ± 0.2 | 24.06 | 24.92 | 26.91 | 99.8 | 90 |
+| Q-ITS -NoCons | 9.7 ± 0.9 | -183.3 ± 0.2 | 23.87 | 25.05 | 27.0 | 98.8 | 90 |

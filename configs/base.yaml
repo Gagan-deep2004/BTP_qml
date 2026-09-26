@@ -1,0 +1,138 @@
+# Q-ITS base-paper reproduction — all parameters in one place.
+# Values marked (paper) come from Table III / Section V; everything else is an
+# implementation assumption documented in IMPLEMENTATION_GUIDE.md Section 4.
+# Calibrated values (lambda_max) live in configs/calibration.yaml and are merged in by load_config().
+
+network:
+  rows: 5                    # A1: Table III "network size 25" -> 5x5 main grid
+  cols: 5
+  link_length_m: 100         # (paper) fixed 100 m segments, bidirectional
+  free_flow_speed_mps: 13.89 # 50 km/h
+  veh_spacing_m: 7.5         # jam spacing -> storage = 100 * lanes / 7.5 veh per link
+  lanes: 2                   # 2 lanes per direction: puts λ_max in the paper's λ = [3, 7] range
+  sat_flow_vps: 0.5          # per lane (1800 veh/h/lane)
+
+signal:
+  cycle_s: 60
+  lost_time_s: 3             # all-red after each phase
+  split_min: 0.2
+  split_max: 0.8
+  initial_split: 0.5
+
+rule_based:                  # fixed cycle + predefined thresholds (paper Sec. V)
+  high_ratio: 0.65           # if NS share of queues > high_ratio -> split_high
+  low_ratio: 0.35            # if NS share of queues < low_ratio  -> split_low
+  split_high: 0.65
+  split_low: 0.35
+
+devices:                     # consumer-device probe data (smartphones / in-car units)
+  penetration: 0.6           # share of vehicles carrying a reporting device (not given in paper)
+  gps_noise_m: 3.0
+  speed_noise_mps: 0.5
+  queue_speed_mps: 1.0       # reported speed below this = queued
+  inflow_span_s: 30          # EWMA span of the predicted-inflow feature
+  delay_window_s: 60         # window of reported link travel times used for δ_ij
+  save_probes: false         # raw probe log is large; enabled only for dataset samples
+
+quantum:                     # variational quantum circuit per intersection (Sec. III/IV)
+  n_qubits: 4                # 16 features -> 4 qubits (amplitude encoding, Eq. 2)
+  depth: 8                   # (paper) d = 8 layers of RY-RZ + ring CX (Eq. 7)
+  shots: 8192                # (paper)
+  backend: noisy             # exact | shots | noisy | aer   (see qits/quantum/vqc.py)
+  learning_rate: 0.05        # (paper) η, SPSA step (Eq. 11)
+  perturbation: 0.1          # ξ (Eq. 10). Paper: 0.01, but with 8192 shots + NISQ noise that does not
+                             # converge (A17, results/quantum/fig1c_convergence.png); 0.1 does.
+  lam_var: 0.1               # λ weight of Var(p_ij) in Eq. 9 (A8: not given in paper)
+  init_scale: 3.141592653589793   # θ(0) ~ Uniform(-init_scale, init_scale)
+  noise:                     # (paper) hardware-inspired NISQ noise
+    t1_s: 85.0e-6
+    t2_s: 90.0e-6
+    p1: 2.5e-4               # single-qubit gate error
+    p2: 1.3e-3               # two-qubit gate error
+    gate_time_1q_s: 35.0e-9
+    gate_time_2q_s: 300.0e-9
+
+comms:                       # quantum communication / security layer (kept as in the paper)
+  epoch_s: 10                # decision / consensus interval
+  fidelity:                  # Werner-state links between adjacent intersections (Eq. 1/12)
+    f0: 0.95                 # (paper Fig. 1b) fresh-link fidelity
+    tau_s: 1200.0            # decay constant: reproduces Fig. 1b (0.95 -> ~0.4 over 1800 s)
+    noise_std: 0.005
+    eps_F: 0.85              # (paper) re-entangle below this fidelity
+  reentangle:                # adaptive entanglement scheduling (Eq. 17)
+    theta_ent_bits: 0.35     # re-establish if I(ρ_fresh) - I(ρ_now) > θ  (≈ at F = 0.88)
+    p_success: 0.5           # per-attempt success probability of entanglement generation
+    attempt_time_s: 1.0e-3
+  qkd:                       # BB84-style key generation on every entangled link (Eq. 13)
+    raw_rate_bps: 2000       # measured entangled pairs per second per link (~550 secret bits/s,
+                             # ~3x what consensus messages consume)
+    key_pool_max_bits: 50000 # finite key buffer per link
+    sample_frac: 0.1         # sifted bits disclosed for QBER estimation
+    qber_max: 0.11           # (paper) abort / drop link above 11 % QBER
+    mac_bits: 64             # key bits consumed per message for authentication
+    ec_efficiency: 1.2       # error-correction leakage factor (classical overhead only)
+  trust:                     # Eq. 14: T_ij = α F_ij - β L_ij
+    alpha: 1.0
+    beta_per_km: 0.5
+    eps_T: 0.8               # A10: discard channels with T_ij < eps_T
+  consensus:
+    eta_c: 0.2               # A11: Eq. 16 step (stable for eta_c * 2 * max_degree * max_T < 2)
+    mu: 0.01                 # (paper, Table III) consensus weight in Eq. 21
+  classical_crypto:          # Q-ITS-NoQKD ablation: classical authenticated channels
+    overhead_bytes: 28       # AES-GCM nonce (12 B) + tag (16 B)
+    per_hop_s: 5.0e-4        # encrypt + verify per hop
+  latency:                   # Eq. 6 components (A15, all assumptions)
+    t_meas_s: 1.0e-5
+    fiber_speed_mps: 2.0e+8  # (YAML needs the signed exponent to parse as a number)
+    stack_delay_s: 1.0e-3    # per classical hop (protocol stack + queuing)
+    shot_time_s: 1.2e-5      # circuit (~10 µs) + readout + reset per shot
+    classical_loss_per_hop: 0.01
+    header_bytes: 20
+
+qits:                        # Algorithm 1 controller
+  spsa_iters_per_epoch: 2    # SPSA updates per 10 s epoch (~360 per run; Fig. 1c shows 300)
+  kappa_signal: 1.0          # weight of the signal-split term added to C_i (A5)
+  classical_init_scale: 0.1  # NoQOpt ablation: linear-model weights ~ U(-0.1, 0.1). The VQC's ±π
+                             # (natural for rotation angles) saturates a linear model's outputs (A21)
+  pretrain_seed: 1000        # demand seed of the pre-training episode (outside test seeds 42-71)
+  pretrain_density: medium
+
+dqn:                         # DQN signal-control baseline (paper Sec. V)
+  hidden: [64, 128, 64]      # (paper) three FC layers, ReLU
+  lr: 1.0e-3                 # (paper)
+  gamma: 0.95                # (paper)
+  eps_start: 1.0             # (paper) ε-greedy
+  eps_end: 0.05
+  eps_decay_frac: 0.6        # ε decays linearly over this fraction of the episodes
+  episodes: 500              # (paper, A3: 500 episodes x 600 s)
+  episode_s: 600
+  decision_s: 5              # phase decision interval (= minimum green)
+  batch: 64
+  buffer: 100000
+  target_update_steps: 500
+  train_seed_base: 2000      # training demand seeds 2000+ (outside test seeds 42-71)
+  latency:                   # centralised controller at the centre intersection (A15)
+    access_s: 0.010          # RSU <-> edge access link, one way
+    backhaul_per_hop_s: 0.002
+    server_per_node_s: 2.0e-4   # request handling per intersection at the central server
+
+energy:                      # Fig. 2d / Table V (A20: all assumptions; the paper gives no values)
+  p_cpu_w: 65.0              # CPU power while computing (edge node / central server)
+  p_qpu_w: 25000.0           # superconducting QPU system (cryostat + control) while running circuits
+  qpu_sweep_w: [0.01, 0.1, 1, 10, 100, 1000, 10000, 25000]
+  e_bit_j: 5.0e-8            # 50 nJ per transmitted bit (V2I / backhaul average)
+  p_qkd_link_w: 10.0         # QKD source + detectors per quantum link, while powered
+
+simulation:
+  duration_s: 1800     # (paper) T = 1800 s
+  dt_s: 1                    # (paper) Δt = 1 s
+  base_seed: 42              # (paper) seed = 42
+  n_runs: 30                 # (paper) N_runs = 30  (A2)
+
+demand:
+  min_hops: 2                # OD pairs at least 2 blocks apart
+  density_levels:            # (paper) 30 / 60 / 90 % saturation
+    low: 0.3
+    medium: 0.6
+    high: 0.9
+  lambda_max: null           # set by experiments/calibrate_density.py (configs/calibration.yaml)

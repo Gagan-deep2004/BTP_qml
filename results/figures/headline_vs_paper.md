@@ -1,0 +1,11 @@
+| Claim | Paper | This reproduction |
+|---|---|---|
+| Communication overhead reduction | 37.4 % | 82.4 % vs DQN (consensus msgs only); 11.5x higher incl. QKD post-processing |
+| Decision latency reduction | 42.1 % | -186.1 % vs centralised DQN (100 ms vs 35 ms) |
+| Congestion index reduction | 23.9 % | 5.4 % vs rule-based; -18.7 % vs DQN |
+| Packet delivery ratio | 98.2 % | 99.0 % |
+| Entropic stability gain (Eq. 20) | 61.3 % | 15.9 % vs rule-based uniform routing |
+| Average delay reduction | 42.1 % (Table V) | 9.8 % vs rule-based; 13.1 % vs DQN-split; -59.2 % vs DQN |
+| Energy reduction | 16.7 % / 36.9 % | 7.25e+06x higher vs DQN at P_qpu = 25 kW; Q-ITS computation matches DQN only if P_qpu < 3.5 mW |
+| Mean entanglement fidelity | > 0.90 | 0.918 |
+| VQC convergence | within 90 iterations in 88 % of runs | noisy ξ=0.01 (paper) does not converge; ξ=0.1 converges in ~150-300 iterations (Fig. 1c) |
