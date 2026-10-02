@@ -12,10 +12,7 @@ The project has two parts:
    data, a 4-qubit variational quantum circuit (VQC) per intersection for routing, BB84 QKD with
    one-time-pad messages, trust-weighted quantum consensus, and the paper's baselines (fixed-time,
    rule-based, DQN).
-2. **Novelty (`novelty_imp/`)**: improvements to the **traffic-optimisation side only** (the security
-   layer is kept exactly as in the paper). It adds stronger baselines (max-pressure), harder demand
-   scenarios (peak, directional, rush), and **PQ-ITS**, a pressure-aware, phase-level quantum signal
-   controller compared against a same-size classical network. *(Not in this repository yet; it will
+2. **Novelty (`novelty_imp/`)**: improvements to the **traffic-optimisation side only**  *(Not in this repository yet; it will
    be added later. The sections below that mention `novelty_imp/` apply once it is.)*
 
 ## Folder structure
