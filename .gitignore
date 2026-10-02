@@ -20,3 +20,6 @@ sumo_data/results/
 
 # Novelty work is not shared yet
 novelty_imp/
+
+# Archives (e.g. downloaded datasets)
+*.zip
