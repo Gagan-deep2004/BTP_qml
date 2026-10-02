@@ -1,0 +1,50 @@
+# SUMO dataset for the Q-ITS project: road network, vehicle trips and consumer-device data.
+# Every value that also exists in base_imp/configs/base.yaml has the same value here.
+# lambda_max (the density calibration) is written to calibration_<rows>x<cols>.yaml by calibrate_density.py.
+
+network:
+  rows: 25                   # 25 x 25 = 625 intersections
+  cols: 25
+  link_length_m: 100         # (paper) distance between junction centres; SUMO roads are ~83 m
+                             # long because the junction itself takes ~17 m
+  lanes: 2
+  free_flow_speed_mps: 13.89 # 50 km/h
+  veh_spacing_m: 7.5         # jam spacing (SUMO default car: 5 m long + 2.5 m gap) -> link storage
+  sat_flow_vps: 0.5          # per lane (1800 veh/h/lane), used to normalise the inflow feature
+
+signal:                      # fixed-time plan on every signalised junction (base: fixed_time controller)
+  cycle_s: 60
+  lost_time_s: 3             # amber after each green
+  split: 0.5                 # share of green time given to North-South
+
+devices:                     # same consumer-device model as base_imp
+  penetration: 0.6
+  gps_noise_m: 3.0
+  speed_noise_mps: 0.5
+  queue_speed_mps: 1.0
+  inflow_span_s: 30
+  delay_window_s: 60
+
+routing:
+  rerouting_period_s: 60     # vehicles re-plan their fastest route every 60 s (navigation apps);
+                             # 0 = keep the route chosen at departure
+  time_to_teleport_s: 300    # SUMO default: a vehicle stuck this long is teleported (logged)
+
+simulation:
+  duration_s: 1800           # (paper) T = 1800 s, step 1 s
+  seeds: [42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61,
+          62, 63, 64, 65, 66, 67, 68, 69, 70, 71]     # (paper) 30 runs from seed 42
+  probe_seeds: [42]          # raw per-vehicle probe log (large) only for these seeds
+
+demand:
+  min_hops: 2                # origin and destination at least 2 blocks apart
+  density_levels: {low: 0.3, medium: 0.6, high: 0.9}   # (paper) 30 / 60 / 90 % saturation
+  lambda_max: null           # set by calibrate_density.py
+
+calibration:
+  lams: [1, 2, 4, 8, 16, 32]   # first λ values (veh/s); the script extends this range if needed
+                             # and then narrows down around λ_max automatically, for any grid size
+  seeds: [42, 43, 44]
+  slope_tol_abs: 0.1         # stable if vehicles-in-network grows slower than
+  slope_tol_frac: 0.015      #   max(0.1 veh/s, 1.5 % of λ). base_imp used 0.1 veh/s (1.5 % of its λ_max 6.5);
+                             #   the 1.5 % part only matters for large λ on large grids

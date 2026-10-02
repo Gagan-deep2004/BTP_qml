@@ -4,8 +4,19 @@ __pycache__/
 *.pyc
 .pytest_cache/
 
-# Regenerable with `python -m experiments.generate_device_data`
-data/devices/
+# Regenerable with `cd base_imp && python -m experiments.generate_device_data`
+base_imp/data/devices/
 
 # Copyrighted base paper (IEEE); keep local, never push
 *.pdf
+
+# SUMO dataset: large, regenerable with `cd sumo_data && bash run_all.sh`
+sumo_data/data/
+sumo_data/network/
+sumo_data/results/
+
+# Our own reports are shared (the *.pdf rule above is for copyrighted papers)
+!docs/*.pdf
+
+# Novelty work is not shared yet
+novelty_imp/

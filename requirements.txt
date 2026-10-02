@@ -1,0 +1,16 @@
+# Python 3.12. Install: python -m pip install -r requirements.txt
+# (CPU-only torch is enough: add --extra-index-url https://download.pytorch.org/whl/cpu)
+numpy==2.5.3
+scipy==1.18.1
+pandas==3.0.6
+pyarrow==25.0.1
+PyYAML==6.0.3
+matplotlib==3.11.2
+qiskit==2.5.2
+qiskit-aer==0.17.2
+torch==2.14.0
+pytest==9.1.1
+# SUMO traffic simulator (sumo_data/)
+eclipse-sumo==1.27.1
+traci==1.27.1
+sumolib==1.27.1
