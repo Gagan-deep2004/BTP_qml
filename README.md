@@ -40,6 +40,7 @@ BTP_qml/
 │   ├── results/            all outputs; results/figures/ has the final tables and figures
 │   └── tests/
 ├── sumo_data/              SUMO DATASET: network, trips and consumer-device data from SUMO (see its README)
+├── sumo_imp/               BASE PAPER ON SUMO: base controllers run closed-loop in SUMO (see its README)
 └── novelty_imp/            NOVELTY IMPLEMENTATION (imports base_imp, never edits it) - added later
     ├── qits_nv/            max-pressure, scenarios, PQ-ITS controller, re-uploading circuit, classical twin
     ├── experiments/        scenario generation, calibration, training, evaluation, reports

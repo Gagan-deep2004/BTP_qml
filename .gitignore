@@ -23,3 +23,6 @@ novelty_imp/
 
 # Archives (e.g. downloaded datasets)
 *.zip
+
+# SUMO evaluation outputs (large; the server results are shared separately)
+sumo_imp/results/
