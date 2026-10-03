@@ -7,6 +7,7 @@ seeds 42-71); density drawn at random from low/medium/high each episode; ε deca
     python -m sumo_imp.experiments.train_dqn                   # 25 x 25, 500 episodes, phase mode
     python -m sumo_imp.experiments.train_dqn --mode split
     python -m sumo_imp.experiments.train_dqn --rows 5 --episodes 20     # quick test
+    python -m sumo_imp.experiments.train_dqn --demand closed_loop       # λ levels of calibrate_closed_loop.py
 The model is saved every 25 episodes; --resume continues from the last checkpoint.
 Output: sumo_imp/results/<R>x<C>/dqn/{dqn|dqn_split}.pt, _training_log.csv, _training_curve.png
 """
@@ -24,10 +25,10 @@ import torch
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
-from common import GridMap, density_lambdas  # noqa: E402
+from common import GridMap  # noqa: E402
 from generate_demand import make_trips, trips_to_frame  # noqa: E402
 from qits.agents.dqn_agent import DQNController, DQNLearner  # noqa: E402
-from sumo_imp.config import load_config  # noqa: E402
+from sumo_imp.config import DEMANDS, Demand, load_config  # noqa: E402
 from sumo_imp.controllers import dqn_path  # noqa: E402
 from sumo_imp.simulator import SumoSimulator  # noqa: E402
 
@@ -40,6 +41,7 @@ def main():
     ap.add_argument("--port", type=int, default=33000)
     ap.add_argument("--threads", type=int, default=4, help="torch threads")
     ap.add_argument("--resume", action="store_true")
+    ap.add_argument("--demand", default="dataset", choices=DEMANDS)
     args = ap.parse_args()
     torch.set_num_threads(args.threads)
 
@@ -47,8 +49,10 @@ def main():
     d = cfg["dqn"]
     episodes = args.episodes or d["episodes"]
     gmap = GridMap(scfg)
-    lams = density_lambdas(scfg)
-    path = dqn_path(scfg, args.mode)
+    dem = Demand(scfg, args.demand)
+    lams = dem.lambdas()
+    print(f"demand: {args.demand}, lambda per density {lams}", flush=True)
+    path = dqn_path(scfg, args.mode, dem.suffix)
     path.parent.mkdir(parents=True, exist_ok=True)
     log_path = path.with_name(path.stem + "_training_log.csv")
     learner = DQNLearner(cfg, seed=d["train_seed_base"], mode=args.mode)

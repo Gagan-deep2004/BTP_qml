@@ -49,6 +49,31 @@ Q-ITS is pre-trained first (2 episodes of 1800 s, ~1 h on 25 × 25), then its 90
 DQN training (500 episodes of 600 s) is the longest part; `--resume` continues after an interruption.
 Quick check on 5 × 5: add `--rows 5` (and e.g. `--seeds 42 43`, `--episodes 4`).
 
+### Closed-loop density levels (`--demand closed_loop`)
+
+The `sumo_data` levels were calibrated with SUMO's navigation routing. The evaluation routes vehicles
+like the base paper, which spreads traffic more evenly, so on 25 × 25 "high" was far from saturation
+(delays rose only ~6 % from low to high). `calibrate_closed_loop.py` measures λ_max in the evaluation's
+own setup (fixed-time + base routing, same stability rule) and writes new test trips at 30 / 60 / 90 %
+of it. Everything for this setting has `_closed_loop` in its name (θ, DQN models, `eval_closed_loop/`), so
+the first results stay untouched.
+
+```bash
+nohup python -m sumo_imp.experiments.calibrate_closed_loop --workers 90 > cal_cl.log 2>&1 &
+# when cal_cl.log ends with "-> .../closed_loop":
+nohup python -m sumo_imp.experiments.train_dqn --demand closed_loop                          > dqn_cl.log 2>&1 &
+nohup python -m sumo_imp.experiments.train_dqn --demand closed_loop --mode split --port 33100 > dqn_split_cl.log 2>&1 &
+nohup python -m sumo_imp.experiments.run_eval --demand closed_loop --controllers fixed_time rule_based qits \
+      qits_routing_only qits_signals_only --workers 200 --base-port 37000 > eval_cl_a.log 2>&1 &
+# when both DQN logs end with "saved ...":
+nohup python -m sumo_imp.experiments.run_eval --demand closed_loop --controllers dqn dqn_split --workers 90 \
+      --base-port 38000 > eval_cl_b.log 2>&1 &
+python -m sumo_imp.experiments.report --demand closed_loop
+```
+
+`qits_routing_only` / `qits_signals_only` run Q-ITS with only one of its two actions (from the same θ),
+to show which one changes the delay.
+
 Outputs, in `sumo_imp/results/<R>x<C>/`:
 
 - `eval/summary.csv`: one row per run

@@ -1,7 +1,7 @@
 """Result tables for the SUMO evaluation.
 
-    python -m sumo_imp.experiments.report [--rows 5]
-Output: sumo_imp/results/<R>x<C>/eval/report.md
+    python -m sumo_imp.experiments.report [--rows 5] [--demand closed_loop]
+Output: sumo_imp/results/<R>x<C>/eval[_closed_loop]/report.md
   1. delay per controller and density: mean ± 95 % CI over seeds (paper Eq. 25), for completed trips
      and for all vehicles (unfinished ones counted with the delay so far), plus completion and teleports;
   2. Q-ITS vs each baseline: improvement = (X_baseline - X_QITS) / X_baseline x 100 (paper Table V),
@@ -13,7 +13,7 @@ import sumo_imp  # noqa: F401  (paths)
 import pandas as pd
 
 from qits.metrics import ci95, improvement, paired_ttest  # noqa: E402
-from sumo_imp.config import load_config, results_dir  # noqa: E402
+from sumo_imp.config import DEMANDS, Demand, load_config, results_dir  # noqa: E402
 
 DENSITIES = ["low", "medium", "high"]
 
@@ -29,9 +29,11 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--rows", type=int)
     ap.add_argument("--reference", default="qits", help="controller compared against the others")
+    ap.add_argument("--demand", default="dataset", choices=DEMANDS)
     args = ap.parse_args()
     _, scfg = load_config(args.rows)
-    out = results_dir(scfg) / "eval"
+    dem = Demand(scfg, args.demand)
+    out = results_dir(scfg) / f"eval{dem.suffix}"
     df = pd.read_csv(out / "summary.csv")
     order = [c for c in ["fixed_time", "rule_based", "dqn_split", "dqn", "qits"] if c in set(df.controller)]
     order += sorted(set(df.controller) - set(order))
@@ -48,7 +50,8 @@ def main():
                          "delay, all vehicles (s)": f"{ma:.1f} ± {ha:.1f}",
                          "completed": f"{x.completion_rate.mean():.3f}",
                          "teleports / run": f"{x.teleports.mean():.1f}"})
-    text = (f"# SUMO evaluation ({scfg['network']['rows']} x {scfg['network']['cols']})\n\n"
+    text = (f"# SUMO evaluation ({scfg['network']['rows']} x {scfg['network']['cols']}, demand: {args.demand}, "
+            f"lambda per density {dem.lambdas()} veh/s)\n\n"
             "Delay = SUMO time loss + waiting to enter, mean ± 95 % CI over seeds.\n\n" + md(pd.DataFrame(rows)))
 
     ref = args.reference

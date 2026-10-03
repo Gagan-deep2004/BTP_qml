@@ -8,8 +8,9 @@ online (Algorithm 1). The DQN models must be trained first (train_dqn.py).
     python -m sumo_imp.experiments.run_eval --controllers fixed_time rule_based --workers 90
     python -m sumo_imp.experiments.run_eval --controllers qits --workers 90
     python -m sumo_imp.experiments.run_eval --rows 5 --seeds 42 43 --controllers fixed_time qits   # test
-Output: sumo_imp/results/<R>x<C>/eval/summary.csv (one row per controller x density x seed; reruns
-replace their rows) and runs/<controller>/<density>_seed<s>_{delay,epochs}.csv
+    python -m sumo_imp.experiments.run_eval --demand closed_loop ...   # trips of calibrate_closed_loop.py
+Output: sumo_imp/results/<R>x<C>/eval[_closed_loop]/summary.csv (one row per controller x density x seed;
+reruns replace their rows) and runs/<controller>/<density>_seed<s>_{delay,epochs}.csv
 """
 import argparse
 import os
@@ -22,18 +23,18 @@ import sumo_imp  # noqa: F401  (paths)
 import numpy as np
 import pandas as pd
 
-from common import GridMap, demand_csv, density_lambdas  # noqa: E402
+from common import GridMap  # noqa: E402
 from generate_demand import make_trips, trips_to_frame  # noqa: E402
-from sumo_imp.config import load_config, results_dir  # noqa: E402
-from sumo_imp.controllers import QITS_VARIANTS, make_controller, theta_path  # noqa: E402
+from sumo_imp.config import DEMANDS, Demand, load_config, results_dir  # noqa: E402
+from sumo_imp.controllers import QITS_VARIANTS, make_controller, pretrain_variant, theta_path  # noqa: E402
 from sumo_imp.simulator import SumoSimulator  # noqa: E402
 
 
-def pretrain_qits(cfg, scfg, variant, episodes, port):
+def pretrain_qits(cfg, scfg, variant, episodes, port, demand):
     from qits.agents.qits_agent import QITSController
     q = cfg["qits"]
     gmap = GridMap(scfg)
-    lam = density_lambdas(scfg)[q["pretrain_density"]]
+    lam = demand.lambdas()[q["pretrain_density"]]
     theta = None
     with tempfile.TemporaryDirectory() as tmp:
         for ep in range(episodes):
@@ -49,14 +50,14 @@ def pretrain_qits(cfg, scfg, variant, episodes, port):
 
 
 def run_one(job):
-    name, density, seed, rows, backend, port = job
+    name, density, seed, rows, backend, demand_name, port = job
     cfg, scfg = load_config(rows)
     cfg["quantum"]["backend"] = backend
-    ctl = make_controller(name, cfg, scfg, seed)
-    demand = pd.read_csv(demand_csv(scfg, density, seed))
+    dem = Demand(scfg, demand_name)
+    ctl = make_controller(name, cfg, scfg, seed, dem.suffix)
     tic = time.perf_counter()
-    res = SumoSimulator(cfg, scfg, demand, ctl, seed, port=port).run()
-    run_dir = results_dir(scfg) / "eval" / "runs" / name
+    res = SumoSimulator(cfg, scfg, pd.read_csv(dem.csv(density, seed)), ctl, seed, port=port).run()
+    run_dir = results_dir(scfg) / f"eval{dem.suffix}" / "runs" / name
     run_dir.mkdir(parents=True, exist_ok=True)
     trips = res["trips"].assign(minute=res["trips"].t_arrive // 60)
     trips.groupby("minute").delay.mean().reset_index().to_csv(run_dir / f"{density}_seed{seed}_delay.csv",
@@ -66,6 +67,7 @@ def run_one(job):
     extra = ctl.summary() if hasattr(ctl, "summary") else {}
     extra = {k: v for k, v in extra.items() if k not in res["summary"]}
     return {**res["summary"], "controller": name, "density": density, "seed": seed, "backend": backend,
+            "demand": demand_name,
             "wall_s": time.perf_counter() - tic, **extra}
 
 
@@ -79,6 +81,7 @@ def main():
     ap.add_argument("--pretrain-episodes", type=int, default=2)
     ap.add_argument("--workers", type=int, default=8)
     ap.add_argument("--base-port", type=int, default=31000, help="run i uses TraCI port base_port + i")
+    ap.add_argument("--demand", default="dataset", choices=DEMANDS)
     args = ap.parse_args()
     for var in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
         os.environ[var] = "1"                     # one core per run (inherited by the workers)
@@ -86,20 +89,23 @@ def main():
     cfg, scfg = load_config(args.rows)
     backend = args.backend or cfg["quantum"]["backend"]
     cfg["quantum"]["backend"] = backend
-    out = results_dir(scfg) / "eval"
+    dem = Demand(scfg, args.demand)
+    print(f"demand: {args.demand}, lambda per density {dem.lambdas()}", flush=True)
+    out = results_dir(scfg) / f"eval{dem.suffix}"
     out.mkdir(parents=True, exist_ok=True)
 
     for name in args.controllers:
         if name in QITS_VARIANTS:
-            path = theta_path(scfg, backend, name)
+            path = theta_path(scfg, backend, name, dem.suffix)
             if not path.exists():
                 path.parent.mkdir(parents=True, exist_ok=True)
-                v = "qits" if name in ("qits_routing_only", "qits_signals_only") else name
-                np.save(path, pretrain_qits(cfg, scfg, v, args.pretrain_episodes, args.base_port - 1))
+                np.save(path, pretrain_qits(cfg, scfg, pretrain_variant(name), args.pretrain_episodes,
+                                            args.base_port - 1, dem))
 
     seeds = args.seeds or scfg["simulation"]["seeds"]
     rows = scfg["network"]["rows"]
-    jobs = [(c, d, s, rows, backend) for c in args.controllers for d in args.densities for s in seeds]
+    jobs = [(c, d, s, rows, backend, args.demand) for c in args.controllers for d in args.densities
+            for s in seeds]
     jobs = [(*j, args.base_port + i) for i, j in enumerate(jobs)]
     print(f"{len(jobs)} runs on {args.workers} workers", flush=True)
     results = []

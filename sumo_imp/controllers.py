@@ -25,29 +25,33 @@ QITS_VARIANTS = {
 }
 
 
-def dqn_path(scfg, mode):
-    return results_dir(scfg) / "dqn" / ("dqn.pt" if mode == "phase" else "dqn_split.pt")
+def dqn_path(scfg, mode, suffix=""):
+    return results_dir(scfg) / "dqn" / (("dqn" if mode == "phase" else "dqn_split") + suffix + ".pt")
 
 
-def theta_path(scfg, backend, variant="qits"):
-    """Pre-trained θ per variant (the routing/signal diagnostics share the full Q-ITS θ)."""
-    v = "qits" if variant in ("qits", "qits_routing_only", "qits_signals_only") else variant
-    return results_dir(scfg) / "qits" / f"theta_pretrained_{v}_{backend}.npy"
+def pretrain_variant(variant):
+    """The routing/signal diagnostics run from the full Q-ITS θ."""
+    return "qits" if variant in ("qits", "qits_routing_only", "qits_signals_only") else variant
 
 
-def _dqn(cfg, scfg, seed, mode):
+def theta_path(scfg, backend, variant="qits", suffix=""):
+    """Pre-trained θ per variant and demand setting."""
+    return results_dir(scfg) / "qits" / f"theta_pretrained_{pretrain_variant(variant)}_{backend}{suffix}.npy"
+
+
+def _dqn(cfg, scfg, seed, mode, suffix):
     import torch
     from qits.agents.dqn_agent import DQNController, DQNLearner
     torch.set_num_threads(1)
-    path = dqn_path(scfg, mode)
+    path = dqn_path(scfg, mode, suffix)
     if not path.exists():
         raise FileNotFoundError(f"{path} missing; train it first: python -m sumo_imp.experiments.train_dqn")
     return DQNController(cfg, DQNLearner.load_qnet(cfg, path, mode), epsilon=0.0, seed=seed, mode=mode)
 
 
-def _qits(cfg, scfg, seed, variant):
+def _qits(cfg, scfg, seed, variant, suffix):
     from qits.agents.qits_agent import QITSController
-    path = theta_path(scfg, cfg["quantum"]["backend"], variant)
+    path = theta_path(scfg, cfg["quantum"]["backend"], variant, suffix)
     if not path.exists():
         raise FileNotFoundError(f"{path} missing; run_eval.py pre-trains it")
     ctl = QITSController(cfg, seed=seed, theta0=np.load(path), **QITS_VARIANTS[variant])
@@ -55,13 +59,14 @@ def _qits(cfg, scfg, seed, variant):
     return ctl
 
 
-def make_controller(name, cfg, scfg, seed):
+def make_controller(name, cfg, scfg, seed, suffix=""):
+    """suffix: demand setting of the trained models ("" = dataset, "_closed_loop")."""
     if name == "fixed_time":
         return FixedTimeController()
     if name == "rule_based":
         return RuleBasedController.from_config(cfg)
     if name in ("dqn", "dqn_split"):
-        return _dqn(cfg, scfg, seed, "phase" if name == "dqn" else "split")
+        return _dqn(cfg, scfg, seed, "phase" if name == "dqn" else "split", suffix)
     if name in QITS_VARIANTS:
-        return _qits(cfg, scfg, seed, name)
+        return _qits(cfg, scfg, seed, name, suffix)
     raise KeyError(f"unknown controller {name!r}")
