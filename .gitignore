@@ -26,3 +26,4 @@ novelty_imp/
 
 # SUMO evaluation outputs (large; the server results are shared separately)
 sumo_imp/results/
+sumo_imp/data/
