@@ -69,4 +69,8 @@ def make_controller(name, cfg, scfg, seed, suffix=""):
         return _dqn(cfg, scfg, seed, "phase" if name == "dqn" else "split", suffix)
     if name in QITS_VARIANTS:
         return _qits(cfg, scfg, seed, name, suffix)
-    raise KeyError(f"unknown controller {name!r}")
+    try:                                   # novelty controllers (max-pressure, PQ-ITS), if present
+        from novelty_imp.sumo.controllers import make_novelty_controller
+    except ImportError:
+        raise KeyError(f"unknown controller {name!r}") from None
+    return make_novelty_controller(name, cfg, scfg, seed, suffix)
