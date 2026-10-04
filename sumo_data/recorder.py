@@ -30,6 +30,9 @@ import traci.constants as tc
 from common import GridMap, binary, net_file
 
 SUB = [tc.VAR_ROAD_ID, tc.VAR_LANEPOSITION, tc.VAR_SPEED]
+# seconds traci keeps trying to reach a starting SUMO (each try ~1 s); many parallel runs on a
+# busy machine can make a 25 x 25 SUMO take well over the default 60 s to start
+CONNECT_RETRIES = 300
 
 
 def sumo_cmd(cfg, trips_xml, seed, tripinfo=None):
@@ -101,7 +104,8 @@ class Recorder:
         with tempfile.TemporaryDirectory() as tmp:
             tripinfo = os.path.join(tmp, "tripinfo.xml")
             label = f"rec{os.getpid()}_{seed}"
-            traci.start(sumo_cmd(cfg, trips_xml, seed, tripinfo), port=port, label=label)
+            traci.start(sumo_cmd(cfg, trips_xml, seed, tripinfo), port=port, numRetries=CONNECT_RETRIES,
+                        label=label)
             conn = traci.getConnection(label)
             try:
                 loaded = conn.simulation.getOption("route-files")

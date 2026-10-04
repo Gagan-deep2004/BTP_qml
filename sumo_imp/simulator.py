@@ -33,6 +33,9 @@ from qits.traffic.simulator import Vehicle
 from .devices import SumoDevices
 
 SUB = [tc.VAR_ROAD_ID, tc.VAR_LANEPOSITION, tc.VAR_SPEED]
+# seconds traci keeps trying to reach a starting SUMO (each try ~1 s); many parallel runs on a
+# busy machine can make a 25 x 25 SUMO take well over the default 60 s to start
+CONNECT_RETRIES = 300
 
 
 class SVehicle(Vehicle):
@@ -85,7 +88,7 @@ class SumoSimulator:
                "--no-step-log", "--no-warnings", "--duration-log.disable",
                "--tripinfo-output", self._tripinfo]
         self._label = f"sim{os.getpid()}_{seed}_{id(self)}"
-        traci.start(cmd, port=port, label=self._label)
+        traci.start(cmd, port=port, numRetries=CONNECT_RETRIES, label=self._label)
         self.conn = traci.getConnection(self._label)
         if self.conn.simulation.getOption("net-file") and not os.path.samefile(
                 self.conn.simulation.getOption("net-file"), net_file(scfg)):

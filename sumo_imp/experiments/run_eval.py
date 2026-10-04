@@ -10,7 +10,8 @@ online (Algorithm 1). The DQN models must be trained first (train_dqn.py).
     python -m sumo_imp.experiments.run_eval --rows 5 --seeds 42 43 --controllers fixed_time qits   # test
     python -m sumo_imp.experiments.run_eval --demand closed_loop ...   # trips of calibrate_closed_loop.py
 Output: sumo_imp/results/<R>x<C>/eval[_closed_loop]/summary.csv (one row per controller x density x seed;
-reruns replace their rows) and runs/<controller>/<density>_seed<s>_{delay,epochs}.csv
+runs already in summary.csv are skipped unless --rerun) and runs/<controller>/<density>_seed<s>_{delay,epochs}.csv.
+A run that fails is reported and skipped; running the same command again retries only the missing runs.
 """
 import argparse
 import os
@@ -50,6 +51,14 @@ def pretrain_qits(cfg, scfg, variant, episodes, port, demand):
 
 
 def run_one(job):
+    try:
+        return _run_one(job)
+    except Exception as e:                          # one failed run must not stop the others
+        name, density, seed = job[:3]
+        return {"controller": name, "density": density, "seed": seed, "error": f"{type(e).__name__}: {e}"}
+
+
+def _run_one(job):
     name, density, seed, rows, backend, demand_name, port = job
     cfg, scfg = load_config(rows)
     cfg["quantum"]["backend"] = backend
@@ -82,6 +91,7 @@ def main():
     ap.add_argument("--workers", type=int, default=8)
     ap.add_argument("--base-port", type=int, default=31000, help="run i uses TraCI port base_port + i")
     ap.add_argument("--demand", default="dataset", choices=DEMANDS)
+    ap.add_argument("--rerun", action="store_true", help="also run controller/density/seed already in summary.csv")
     args = ap.parse_args()
     for var in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
         os.environ[var] = "1"                     # one core per run (inherited by the workers)
@@ -107,11 +117,21 @@ def main():
     jobs = [(c, d, s, rows, backend, args.demand) for c in args.controllers for d in args.densities
             for s in seeds]
     jobs = [(*j, args.base_port + i) for i, j in enumerate(jobs)]
-    print(f"{len(jobs)} runs on {args.workers} workers", flush=True)
-    results = []
     summary = out / "summary.csv"
+    if summary.exists() and not args.rerun:
+        done = set(map(tuple, pd.read_csv(summary)[["controller", "density", "seed"]].astype(str).to_numpy()))
+        skipped = [j for j in jobs if (j[0], j[1], str(j[2])) in done]
+        jobs = [j for j in jobs if (j[0], j[1], str(j[2])) not in done]
+        if skipped:
+            print(f"skipping {len(skipped)} runs already in {summary.name} (use --rerun to repeat them)")
+    print(f"{len(jobs)} runs on {args.workers} workers", flush=True)
+    results, failed = [], []
     with ProcessPoolExecutor(args.workers) as ex:
         for r in ex.map(run_one, jobs):
+            if "error" in r:
+                failed.append(r)
+                print(f"FAILED {r['controller']} {r['density']} seed {r['seed']}: {r['error']}", flush=True)
+                continue
             results.append(r)
             print(f"{r['controller']:12s} {r['density']:6s} seed {r['seed']}: delay {r['avg_delay_s']:6.1f} s "
                   f"(all vehicles {r['avg_delay_all_s']:6.1f} s), completed {r['completion_rate']:.2f}, "
@@ -123,6 +143,8 @@ def main():
                 old = old[~old.set_index(key).index.isin(df.set_index(key).index)]
                 df = pd.concat([old, df], ignore_index=True)
             df.sort_values(["controller", "density", "seed"]).to_csv(summary, index=False)
+    if failed:
+        print(f"{len(failed)} runs failed; run the same command again to retry only those", flush=True)
     print(f"-> {summary}")
 
 
