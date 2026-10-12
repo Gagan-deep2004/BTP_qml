@@ -24,6 +24,25 @@ novelty_imp/
 # Archives (e.g. downloaded datasets)
 *.zip
 
-# SUMO evaluation outputs (large; the server results are shared separately)
-sumo_imp/results/
+# SUMO evaluation outputs: share only the base-paper results (models, calibration, tables);
+# per-run files, logs and anything with novelty rows (eval_closed_loop/summary.csv) stay local
+sumo_imp/results/**
+!sumo_imp/results/*/
+!sumo_imp/results/*/calibration*
+!sumo_imp/results/*/device_runs.csv
+!sumo_imp/results/*/dqn/
+!sumo_imp/results/*/dqn/**
+!sumo_imp/results/*/qits/
+!sumo_imp/results/*/qits/**
+!sumo_imp/results/*/eval/
+!sumo_imp/results/*/eval/summary.csv
+!sumo_imp/results/*/eval/report.md
+!sumo_imp/results/*/eval_closed_loop/
+!sumo_imp/results/*/eval_closed_loop/base_summary.csv
+!sumo_imp/results/*/eval_closed_loop/report.md
 sumo_imp/data/
+# 5 x 5 SUMO runs are local smoke tests, not results
+sumo_imp/results/5x5/
+
+# Server downloads (unpacked into sumo_imp/ and novelty_imp/)
+server_snapshot*/
